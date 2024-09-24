@@ -1,0 +1,451 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecom Local - Pricing Configurator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.5.0/font/bootstrap-icons.min.css">
+    <style>
+        body::after { position: absolute; bottom: 10px; right: 10px; opacity: 0.7; pointer-events: none; font-size: 0.9em; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; padding: 20px; }
+        h1 { font-size: 1.8em; color: #007bff; }
+        .form-label { font-size: 0.9em; color: #555; }
+        .form-control { font-size: 0.9em; border-radius: 10px; }
+        .section-header { font-size: 1.1em; font-weight: bold; margin-top: 15px; cursor: pointer; color: #007bff; }
+        .section-content { display: block; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); }
+        .result, .intermediate { margin-top: 20px; font-size: 1.1em; }
+        .intermediate { display: flex; flex-wrap: wrap; background-color: #f9fafb; padding: 15px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); }
+        .intermediate div { flex: 1 1 22%; margin: 10px; padding: 15px; border: 1px solid #dee2e6; border-radius: 10px; }
+        .main-result { margin-top: 20px; padding: 20px; border-radius: 10px; font-size: 1.4em; text-align: center; background-color: #fff; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); }
+        .positive { color: green; background-color: #e9f7ea; border: 2px solid green; }
+        .negative { color: red; background-color: #fdecea; border: 2px solid red; }
+        .hint { font-size: 0.9em; color: #6c757d; cursor: pointer; display: inline-block; margin-left: 5px; }
+        .hint:hover .hint-text { display: block; }
+        .hint-text { display: none; position: absolute; background: #fff; border: 1px solid #6c757d; padding: 5px; border-radius: 3px; z-index: 10; max-width: 200px; }
+        .container { max-width: 100%; }
+        .currency { display: inline-block; min-width: 120px; font-size: 0.9em; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: #fff; margin: 15% auto; padding: 30px; border: 1px solid #888; width: 60%; border-radius: 10px; box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3); }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
+        .btn-primary { border-radius: 50px; padding: 10px 30px; font-size: 1em; }
+    </style>
+    <script>
+        document.addEventListener("contextmenu", function(a) { a.preventDefault() });
+        document.addEventListener("selectstart", function(a) { a.preventDefault() });
+
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function formatCurrency(value) {
+            return value.toLocaleString('en-US', { style: 'currency', currency: 'DZD', minimumFractionDigits: 2 });
+        }
+
+        function calculateProfit() {
+            const productCost = parseFloat(document.getElementById('productCost').value);
+            const deliveryFees = parseFloat(document.getElementById('deliveryFees').value);
+            const confirmationFees = parseFloat(document.getElementById('confirmationFees').value);
+            const packagingFees = parseFloat(document.getElementById('packagingFees').value);
+            const rental = parseFloat(document.getElementById('rental').value);
+            const employees = parseFloat(document.getElementById('employees').value);
+            const communication = parseFloat(document.getElementById('communication').value);
+            const dev = parseFloat(document.getElementById('dev').value);
+            const transportation = parseFloat(document.getElementById('transportation').value);
+            const other = parseFloat(document.getElementById('other').value);
+            const purchasedInventory = parseFloat(document.getElementById('purchasedInventory').value);
+            const deadInventoryRate = parseFloat(document.getElementById('deadInventoryRate').value) / 100;
+            const confirmationRate = parseFloat(document.getElementById('confirmationRate').value) / 100;
+            const returnFees = parseFloat(document.getElementById('returnFees').value);
+            const adsCostUSD = parseFloat(document.getElementById('adsCost').value);
+            const usdToDzdRate = parseFloat(document.getElementById('usdToDzdRate').value);
+            const productSellingPrice = parseFloat(document.getElementById('productSellingPrice').value);
+            const defectiveRate = parseFloat(document.getElementById('defectiveRate').value) / 100;
+            const returnRate = parseFloat(document.getElementById('returnRate').value) / 100;
+            const refund = parseFloat(document.getElementById('refund').value) / 100;
+            const exchanges = parseFloat(document.getElementById('exchanges').value) / 100;
+
+            const totalFixedFees = rental + employees + communication + dev + transportation + other;
+            const sold = purchasedInventory * (1 - deadInventoryRate);
+            const unitaryFixedCost = totalFixedFees / sold;
+            const unitCost = productCost + deliveryFees + confirmationFees + packagingFees + unitaryFixedCost;
+            const orderIntake = sold / (1 - returnRate);
+            const cogs = unitCost * sold;
+            const deadInventoryCost = productCost * (purchasedInventory - sold);
+            const adsCost = (orderIntake / confirmationRate) * (adsCostUSD * usdToDzdRate);
+            const defectiveCost = defectiveRate * purchasedInventory * productCost;
+            const returnCost = returnFees * (orderIntake - sold);
+            const refundCost = (refund * orderIntake * unitCost) + (refund * orderIntake * deliveryFees);
+            const exchangeCost = exchanges * orderIntake * deliveryFees;
+            const totalCost = cogs + deadInventoryCost + adsCost + refundCost + exchangeCost + returnCost + defectiveCost;
+            const totalRevenue = productSellingPrice * sold;
+            const netProfit = totalRevenue - totalCost;
+            const roi = (netProfit / totalRevenue) * 100;
+
+            const resultContainer = document.getElementById('resultContainer');
+            const roiContainer = document.getElementById('roiContainer');
+
+            resultContainer.innerText = `Net Profit: ${formatCurrency(netProfit)}`;
+            roiContainer.innerText = `ROI: ${roi.toFixed(2)}%`;
+
+            if (netProfit >= 0) {
+                resultContainer.classList.add('positive');
+                resultContainer.classList.remove('negative');
+                roiContainer.classList.add('positive');
+                roiContainer.classList.remove('negative');
+            } else {
+                resultContainer.classList.add('negative');
+                resultContainer.classList.remove('positive');
+                roiContainer.classList.add('negative');
+                roiContainer.classList.remove('positive');
+            }
+
+            const intermediateResults = `
+                <div class="currency">Total Fixed Fees: ${formatCurrency(totalFixedFees)}</div>
+                <div class="currency">Unitary Fixed Cost: ${formatCurrency(unitaryFixedCost)}</div>
+                <div class="currency">Unit Cost: ${formatCurrency(unitCost)}</div>
+                <div class="currency">Sold: ${sold.toLocaleString()}</div>
+                <div class="currency">Order Intake: ${orderIntake.toLocaleString()}</div>
+                <div class="currency">COGS: ${formatCurrency(cogs)}</div>
+                <div class="currency">Dead Inventory Cost: ${formatCurrency(deadInventoryCost)}</div>
+                <div class="currency">Ads Cost: ${formatCurrency(adsCost)}</div>
+                <div class="currency">Defective Cost: ${formatCurrency(defectiveCost)}</div>
+                <div class="currency">Return Cost: ${formatCurrency(returnCost)}</div>
+                <div class="currency">Refund Cost: ${formatCurrency(refundCost)}</div>
+                <div class="currency">Exchange Cost: ${formatCurrency(exchangeCost)}</div>
+                <div class="currency">Total Cost: ${formatCurrency(totalCost)}</div>
+                                <div class="currency">Total Revenue: ${formatCurrency(totalRevenue)}</div>`;
+
+            document.getElementById('intermediate').innerHTML = intermediateResults;
+        }
+
+        function showModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'none';
+        }
+
+        function submitUserInfo() {
+            const name = document.getElementById('userName').value;
+            const phone = document.getElementById('userPhone').value;
+            const updates = document.getElementById('receiveUpdates').checked ? 'Yes' : 'No';
+            const ecommerce = document.querySelector('input[name="ecommerce"]:checked').value;
+
+            // Send data to Google Sheets
+            const url = 'YOUR_GOOGLE_SCRIPT_URL'; // Replace with your Google Apps Script URL
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, phone, updates, ecommerce }),
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('Success:', data);
+                  closeModal();
+              })
+              .catch((error) => {
+                  console.error('Error:', error);
+              });
+
+            localStorage.setItem('userSubmitted', 'true');
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            if (localStorage.getItem('userSubmitted') !== 'true') {
+                showModal();
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <h1 class="text-center mb-2">Ecom Local - Pricing Configurator</h1>    
+    <div class="container">
+        <div class="row">
+            <!-- Variable Costs Section -->
+            <div class="col-md-6">
+                <div class="section-header" onclick="toggleSection('variableCosts')">Variable Costs</div>
+                <div id="variableCosts" class="section-content">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="productCost" class="form-label">Product Cost:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">The cost of the product per unit.</span>
+                            </span>
+                            <input type="number" class="form-control" id="productCost" value="900">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="deliveryFees" class="form-label">Delivery Fees:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">The cost of delivering the product to the customer.</span>
+                            </span>
+                            <input type="number" class="form-control" id="deliveryFees" value="750">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="confirmationFees" class="form-label">Confirmation Fees:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Fees associated with confirming the order.</span>
+                            </span>
+                            <input type="number" class="form-control" id="confirmationFees" value="100">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="packagingFees" class="form-label">Packaging Fees:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">The cost of packaging the product.</span>
+                            </span>
+                            <input type="number" class="form-control" id="packagingFees" value="100">
+                        </div>
+                    </div>
+                </div>
+                <div class="section-header" onclick="toggleSection('fixedCosts')">Fixed Costs</div>
+                <div id="fixedCosts" class="section-content">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="rental" class="form-label">Rental:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Monthly rental costs for the business premises.</span>
+                            </span>
+                            <input type="number" class="form-control" id="rental" value="0">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="employees" class="form-label">Employees:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Total cost of employees' salaries.</span>
+                            </span>
+                            <input type="number" class="form-control" id="employees" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="communication" class="form-label">Communication:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Cost of communication services such as phone and internet.</span>
+                            </span>
+                            <input type="number" class="form-control" id="communication" value="0">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="dev" class="form-label">Dev:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Cost of development and IT services.</span>
+                            </span>
+                            <input type="number" class="form-control" id="dev" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="transportation" class="form-label">Transportation:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Cost of transporting goods and materials.</span>
+                            </span>
+                            <input type="number" class="form-control" id="transportation" value="0">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="other" class="form-label">Other:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Other miscellaneous costs.</span>
+                            </span>
+                            <input type="number" class="form-control" id="other" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Config Parameters and Sales Inputs Section -->
+            <div class="col-md-6">
+                <div class="section-header" onclick="toggleSection('configParameters')">Config Parameters</div>
+                <div id="configParameters" class="section-content">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="purchasedInventory" class="form-label">Purchased Inventory:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Total number of units purchased.</span>
+                            </span>
+                            <input type="number" class="form-control" id="purchasedInventory" value="100">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="deadInventoryRate" class="form-label">Dead Inventory Rate (%):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Percentage of inventory that cannot be sold.</span>
+                            </span>
+                            <input type="number" class="form-control" id="deadInventoryRate" value="5" step="0.01">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="confirmationRate" class="form-label">Confirmation Rate (%):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Percentage of orders confirmed by customers.</span>
+                            </span>
+                            <input type="number" class="form-control" id="confirmationRate" value="80" step="0.01">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="returnRate" class="form-label">Return Rate (%):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Percentage of sold products that are returned.</span>
+                            </span>
+                            <input type="number" class="form-control" id="returnRate" value="20" step="0.01">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="refund" class="form-label">Refund (%):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Percentage of orders refunded.</span>
+                            </span>
+                            <input type="number" class="form-control" id="refund" value="1" step="0.01">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="exchanges" class="form-label">Exchanges (%):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Percentage of orders exchanged.</span>
+                            </span>
+                            <input type="number" class="form-control" id="exchanges" value="1" step="0.01">
+                        </div>
+                    </div>
+                    <div class="mb-2 position-relative">
+                        <label for="defectiveRate" class="form-label">Defective Rate (%):</label>
+                        <span class="hint">(i)
+                            <span class="hint-text">Percentage of defective products.</span>
+                        </span>
+                        <input type="number" class="form-control" id="defectiveRate" value="1" step="0.01">
+                    </div>
+                </div>
+                <div class="section-header" onclick="toggleSection('salesInputs')">Sales Inputs</div>
+                <div id="salesInputs" class="section-content">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="returnFees" class="form-label">Return Fees:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Cost associated with returning products.</span>
+                            </span>
+                            <input type="number" class="form-control" id="returnFees" value="100">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="adsCost" class="form-label">Ads Cost (USD):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Cost of advertising in USD.</span>
+                            </span>
+                            <input type="number" class="form-control" id="adsCost" value="1">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="usdToDzdRate" class="form-label">USD to DZD Rate:</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Conversion rate from USD to DZD.</span>
+                            </span>
+                            <input type="number" class="form-control" id="usdToDzdRate" value="242">
+                        </div>
+                        <div class="col-md-6 mb-2 position-relative">
+                            <label for="productSellingPrice" class="form-label">Product Selling Price (PSP):</label>
+                            <span class="hint">(i)
+                                <span class="hint-text">Selling price of the product per unit.</span>
+                            </span>
+                            <input type="number" class="form-control" id="productSellingPrice" value="2700">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <button class="btn btn-primary mt-4" onclick="calculateProfit()">Calculate Profit</button>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div id="resultContainer" class="main-result"></div>
+        </div>
+        <div class="col-md-6">
+            <div id="roiContainer" class="main-result"></div>
+        </div>
+    </div>
+    
+    <div class="intermediate mt-4" id="intermediate"></div>
+
+  
+
+    <script>
+
+        const url = "https://script.google.com/macros/s/AKfycbzi7DvIBHhlv6WfkNxhAC5Ewm3I4TaVNzNx6i_ePYGDK2NaGq15pZZ4zIcoAbkilcUB/exec" // enter your public ('access' - 'anyone') deployment URL (NOT test deployment!)
+        document.getElementById('userForm').action = url;
+
+        // fetching the data from each column in the sheet
+        // then populating the respective datalist
+        fetch(`${url}?header=Customer`)
+            .then((response) => response.json())
+            .then(({ data }) => {
+                console.log(data);
+                populateDatalists("customers", data)
+            })
+            .catch((error) => console.error('!!!!!!!!', error));
+
+        fetch(`${url}?header=Phone`)
+            .then((response) => response.json())
+            .then(({ data }) => {
+                console.log(data);
+                populateDatalists("phones", data)
+            })
+            .catch((error) => console.error('!!!!!!!!', error));
+        
+        fetch(`${url}?header=Address`)
+            .then((response) => response.json())
+            .then(({ data }) => {
+                console.log(data);
+                populateDatalists("addresses", data)
+            })
+            .catch((error) => console.error('!!!!!!!!', error));
+
+        // function to add options to datalists
+        const populateDatalists = (id, arr) => {
+            let result = '';
+            for (const item of arr) {
+                result += `<option value="${item}">`;
+            }
+            document.getElementById(id).innerHTML = result;
+        }
+
+
+        function showModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'none';
+        }
+
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            if (localStorage.getItem('userSubmitted') !== 'true') {
+                showModal();
+            }
+        });
+
+        // function to handle form submission and clear the form
+        const submitForm = (event) => {
+            localStorage.setItem('userSubmitted', 'true');
+            if (document.getElementById('customer') !== null) && (document.getElementById('phone') !== null) 
+                { 
+                    closeModal();
+                }
+        }
+    </script>
+
+
+    
+    <footer>
+    </footer>
+</body>
+</html>
+
+
